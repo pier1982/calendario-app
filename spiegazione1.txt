@@ -1,0 +1,433 @@
+Ecco una descrizione passo-passo di ciascun “modale” (modal) presente nell’applicazione, spiegando esattamente cosa fa, come viene aperto/chiuso e quali azioni compie l’utente al suo interno.
+
+1. ShiftModal (M1)
+Quando si apre
+Clic su una cella di calendario
+
+Nella vista mese (MonthView), ogni giorno attivo è un <div> cliccabile che chiama openShiftModal(date), passando la data selezionata.
+
+openM1(date) (in CalendarApp) riceve quella data, salva selectedDate = date e legge da assignments eventuali assegnazioni già esistenti in tempAssignments.
+
+Quindi imposta isM1Open = true, rendendo visibile il componente <ShiftModal … />.
+
+Come appare
+Sfondo semitrasparente e sfocato sull’intera finestra (className="fixed inset-0 … bg-black/30 backdrop-blur-sm").
+
+Contenitore centrale bianco arrotondato con ombra (max-w-sm p-5 rounded-xl shadow-xl).
+
+Titolo in alto che mostra la data (es. “05 Mar 2025”), formattata con date-fns.
+
+Cosa mostra
+Elenco dei reparti/ruoli (hard-coded nell’array roles = ["Sala 1", "Sala 2", …]):
+
+Per ogni ruolo, stampa una riga (<div className="flex justify-between items-center …">) in cui:
+
+A sinistra compare il testo:
+
+Se tempAssignments[role] esiste, appare "Reparto → Operatore", altrimenti solo il nome del reparto.
+
+A destra compare l’icona a forma di matita:
+
+jsx
+Copia
+Modifica
+<button onClick={() => openOperatorModal(role)} …>
+  {/* SVG Pencil */}
+</button>
+Cliccandola, si aprirà il secondo modale (OperatorModal) per assegnare un operatore a quel ruolo.
+
+Bottone “Salva” in fondo:
+
+jsx
+Copia
+Modifica
+<button onClick={save} …>Salva</button>
+Premendolo, si confermano (persistono) le assegnazioni e si chiude il modale.
+
+Bottone “X” di chiusura in alto a destra:
+
+jsx
+Copia
+Modifica
+<button onClick={close}>✕</button>
+Premendolo, chiude il modale senza salvare (ripristina isM1Open = false in CalendarApp).
+
+Flusso interno
+Visualizzazione ruoli e assegnazioni provvisorie
+
+tempAssignments è stato inizializzato in openM1 copiando eventuali assegnazioni esistenti per selectedDate.
+
+Quindi in ShiftModal, ogni riga mostra se tempAssignments[role] è definito (es. “Sala 1 → Maccioni”) oppure solo “Sala 1” se non ancora assegnato.
+
+Clic sull’icona matita di un ruolo
+
+Chiama openOperatorModal(role), passando il ruolo selezionato.
+
+In CalendarApp, openM2(role) setta selectedRole = role e isM2Open = true, aprendo <OperatorModal … />.
+
+OperatorModal (vedi sezione successiva)
+
+L’utente sceglie un operatore per quel ruolo; premendo un nome, selectOperator(op) aggiorna:
+
+js
+Copia
+Modifica
+setTempAssignments(prev => ({ ...prev, [selectedRole]: op }));
+e chiude l’OperatorModal (isM2Open = false).
+
+Tornando in ShiftModal, la riga di quel ruolo ora mostra “Reparto → OperatoreScelto”.
+
+Salvataggio definitivo
+
+Quando l’utente preme “Salva”:
+
+In CalendarApp.saveM1() si genera la chiave key = format(selectedDate, "yyyy-MM-dd").
+
+Viene fatto:
+
+js
+Copia
+Modifica
+setAssignments(prev => ({ ...prev, [key]: { ...tempAssignments } }));
+in modo da salvare l’oggetto tempAssignments (map da ruolo→operatore) in assignments per quella data.
+
+Si chiude il modale (isM1Open = false).
+
+Una volta chiuso, nella griglia (MonthView) il giorno selezionato mostrerà, sotto la data, delle “pillole” colorate per ogni ruolo assegnato (gradevoli da vedere).
+
+Annullamento
+
+Se invece l’utente premi “X” senza salvare, closeM1() (che fa setIsM1Open(false)) chiude il modale e scarta le modifiche in tempAssignments.
+
+2. OperatorModal (M2)
+Quando si apre
+Viene aperto da dentro ShiftModal con:
+
+jsx
+Copia
+Modifica
+<button onClick={() => openOperatorModal(role)}>…</button>
+openOperatorModal(role) in CalendarApp imposta:
+
+js
+Copia
+Modifica
+setSelectedRole(role);
+setIsM2Open(true);
+così viene renderizzato <OperatorModal … />.
+
+Come appare
+Sfondo semi-trasparente simile (fixed inset-0 bg-black/30 backdrop-blur-sm).
+
+Finestra centrale bianca arrotondata (max-w-xs p-6 rounded-xl shadow-xl).
+
+Titolo: “Seleziona Operatore per {selectedRole}”.
+
+Cosa mostra
+Griglia di pulsanti (3 colonne) con tutti gli operatori definiti in operators = ["Pestarino", "Maccioni", …], ricevuti come prop.
+
+Ogni pulsante ha stato:
+
+Disabilitato (disabled) se l’operatore è già usato in tempAssignments (perché non si possono assegnare due ruoli allo stesso operatore nella stessa data).
+La funzione isUsed(op) verifica:
+
+js
+Copia
+Modifica
+Object.values(tempAssignments).includes(op)
+Selezionato (sfondo più scuro) se tempAssignments[selectedRole] === op.
+
+Normale (verde chiaro) se disponibile e non ancora selezionato.
+
+Flusso interno
+Lista operatori
+
+operators.map((op, idx) => { … }) crea i pulsanti.
+
+Per ognuno:
+
+Se isUsed(op) === true, il pulsante è grigio e non cliccabile.
+
+Altrimenti, è verde e cliccabile.
+
+Se tempAssignments[selectedRole] === op, significa che l’utente lo aveva già eventualmente selezionato: il pulsante appare evidenziato (blu).
+
+Selezione di un operatore
+
+Se l’utente clicca un pulsante non disabilitato:
+
+jsx
+Copia
+Modifica
+onClick={() => !used && selectOperator(op)}
+chiama selectOperator(op).
+
+selectOperator(op) in CalendarApp fa:
+
+js
+Copia
+Modifica
+setTempAssignments(prev => ({ ...prev, [selectedRole]: op }));
+setIsM2Open(false);
+– Aggiorna tempAssignments con la coppia { [selectedRole]: op }.
+– Chiude OperatorModal (isM2Open = false).
+
+Chiusura senza selezionare
+
+In alto a destra c’è una “X”. Se l’utente la preme, close() richiama closeM2(), che fa setIsM2Open(false).
+
+In tal caso, tempAssignments non cambia per quel ruolo, rimane allo stato precedente.
+
+Ritorno a ShiftModal
+
+Dopo la chiusura (sia con selezione sia con “X”), l’utente torna a vedere ShiftModal con le assegnazioni aggiornate o invariata.
+
+Da lì, potrà continuare a selezionare altri ruoli o salvare/annullare.
+
+3. StatsModal (M3)
+Quando si apre
+Cliccando il pulsante “Statistiche” nella toolbar inferiore di CalendarApp:
+
+jsx
+Copia
+Modifica
+<button onClick={openStats}>📊 Statistiche</button>
+Il metodo openStats() in CalendarApp setta:
+
+js
+Copia
+Modifica
+setStatsView("monthly");
+setIsStatsOpen(true);
+in modo da renderizzare <StatsModal … />.
+
+Come appare
+Copertura full-screen semitrasparente (fixed inset-0 bg-black/30 backdrop-blur-sm overflow-auto p-2).
+
+Contenitore centrale (max-width md) bianco, arrotondato, con ombra e margini verticali (rounded-lg shadow-xl w-full max-w-md mx-auto mt-8 mb-8).
+
+Pulsante “X” per chiudere in alto a destra.
+
+Titolo “Statistiche Operatori”.
+
+Tre pulsanti di toggle (Mensile, Annuale, Operatore) per cambiare vista (statsView).
+
+Calcolo delle statistiche (useMemo)
+All’interno di StatsModal, appena montato, vengono calcolate varie mappe e classifiche:
+
+statsByOperator
+
+Itera su tutte le assegnazioni assignments (oggetto dal formato { "2025-04-05": { "Sala 1": "Maccioni", … }, … }).
+
+Raggruppa per mese:
+
+Per ogni data, ricava anno e mese ("2025-04"), inizializza un oggetto { [operatore]: 0, … } se non esiste, poi conta quante assegnazioni totali ha ricevuto ciascun operatore quel mese.
+
+Risultato:
+
+js
+Copia
+Modifica
+{
+  "2025-04": { Pestarino: 3, Maccioni: 5, … },
+  "2025-05": { … },
+  …
+}
+rankingByMonth
+
+Per ogni chiave di statsByOperator (es. "2025-04"), ordina gli operatori in base al conteggio discendente per trovare oro, argento, bronzo e li ordina in modo crescente per trovare “ultimo” (cucchiaino).
+
+Restituisce un oggetto:
+
+js
+Copia
+Modifica
+{
+  "2025-04": { gold: "Maccioni", silver: "Gemme", bronze: "Imelio", last: "Pestarino" },
+  …
+}
+statsAnnual
+
+Sommando su base annua: scorre statsByOperator, per ogni "YYYY-MM" estrae "YYYY", e accumula i conteggi di ogni operatore.
+
+Restituisce ad es. { "2025": { Maccioni: 20, Pestarino: 15, … }, … }.
+
+rankingByYear
+
+Come prima, ma per ogni anno in statsAnnual calcola oro/argento/bronzo/ultimo.
+
+statsByOpCategory
+
+Per ogni operatore, inizializza {Sala:0, Reparto:0, Olieria:0}.
+
+Scorre tutte le assegnazioni: per ogni coppia (ruolo, operatore), incrementa il contatore corretto in base a role.toLowerCase().includes("sala"), "reparto" o altrimenti “Olieria”.
+
+Es. { Maccioni: { Sala: 12, Reparto: 5, Olieria: 3 }, … }.
+
+rankingByOpCategories
+
+Per ciascun operatore, ordina le tre categorie (Sala, Reparto, Olieria) in ordine decrescente di conteggio per stabilire oroCat/silverCat/bronzeCat e in ordine crescente per lastCat.
+
+totalByOperator
+
+Per ogni operatore calcola la somma totale di tutte e tre le categorie.
+
+Restituisce un array di coppie [operatore, totale].
+
+rankingGlobal
+
+Ordina totalByOperator per trovare oro/silver/bronze e “ultimo” in base al totale globale.
+
+Cosa mostra, a seconda di statsView
+A) Vista Mensile (statsView === "monthly")
+Tabella orizzontale:
+
+Intestazione: prima colonna “Operatore”, poi tante colonne quanti sono i mesi con almeno un’assegnazione (ad es. "2025-04", "2025-05", …).
+
+Corpo: una riga per ogni operatore.
+
+Nella cella corrispondente al mese, mostra il conteggio di sostituzioni per quell’operatore quel mese e aggiunge:
+
+🏆 accanto al numero se quell’operatore è il “gold” di quel mese (più sostituzioni).
+
+🥈 se “silver”, 🥉 se “bronze”, 🥄 se “last” (meno sostituzioni).
+
+Le celle ore sopra hanno uno sfondo colorato (giallo/argento/arancio/rosso) in base alla posizione.
+
+Legenda Mensile sotto la tabella: spiega i colori e le icone.
+
+B) Vista Annuale (statsView === "annual")
+Per ogni anno (es. “2025”):
+
+Stampa un blocco rettangolare con intestazione “2025 – Totali”.
+
+All’interno elenca tutti gli operatori ordinati per numero di sostituzioni annuali, dalla più alta alla più bassa.
+
+Ogni riga mostra “Operatore – conteggio” e, se corrisponde a oro/argento/bronzo/ultimo di quell’anno, aggiunge l’icona e uno sfondo colorato.
+
+Legenda Annuale sotto i blocchi: spiega significato di 🏆/🥈/🥉/🥄.
+
+C) Vista per Operatore (statsView === "byOperator")
+Per ciascun operatore:
+
+Mostra una “scheda” (card) con:
+
+Header:
+
+Nome operatore e icona globale (🏆/🥈/🥉/🥄) in base al rango totale di sostituzioni.
+
+Totale complessivo di sostituzioni (counts.Sala + counts.Reparto + counts.Olieria).
+
+Sfondo colorato se oro/argento/bronzo/last a livello globale.
+
+Griglia 3 colonne con le tre categorie (“Sala”, “Reparto”, “Olieria”):
+
+Per ognuna, mostra icona (🏆/🥈/🥉/🥄) se è categoria primaria/secondaria/terziaria/last per quell’operatore, e il conteggio nel mese complessivo.
+
+Se nessuno ha fatto sostituzioni (tutti a zero), appare un messaggio “Nessuna sostituzione registrata”.
+
+Legenda per Operatore in basso: spiega icone e sfondi delle card e delle categorie.
+
+Chiusura del modale
+In alto a destra c’è un tasto “✕”: premendolo richiama close(), che chiama closeStats() in CalendarApp e imposta isStatsOpen = false, nascondendo l’intero <StatsModal>.
+
+4. Integrazione complessiva in CalendarApp
+Variabili di stato relative ai modali
+isM1Open → quando true, viene renderizzato <ShiftModal … />.
+
+isM2Open → quando true, viene renderizzato <OperatorModal … />.
+
+isStatsOpen → quando true, viene renderizzato <StatsModal … />.
+
+Apertura/Chiusura di un modale
+ShiftModal (M1)
+
+Apertura: clic su un giorno del calendario → openM1(date) → isM1Open = true.
+
+Chiusura:
+
+Premendo “X” in ShiftModal → closeM1() → isM1Open = false.
+
+Oppure premendo “Salva” → salva assegnazioni → isM1Open = false.
+
+OperatorModal (M2)
+
+Apertura:
+
+Da dentro ShiftModal, clic matita di un ruolo → openOperatorModal(role) → isM2Open = true.
+
+Chiusura:
+
+Premendo “X” in OperatorModal → closeM2() → isM2Open = false.
+
+Oppure cliccando un operatore → selectOperator(op) → aggiorna tempAssignments e isM2Open = false.
+
+StatsModal (M3)
+
+Apertura:
+
+Clic sul pulsante “Statistiche” → openStats() → isStatsOpen = true, statsView = "monthly".
+
+Chiusura:
+
+Premendo “X” in StatsModal → closeStats() → isStatsOpen = false.
+
+Sequenza tipica di utilizzo
+L’utente naviga nel calendario e clicca su una data: si apre ShiftModal (M1).
+
+All’interno di M1, vede l’elenco dei ruoli; per assegnarne uno, clicca la matita a destra di “Sala 2”, ad esempio.
+
+Si apre OperatorModal (M2), con l’elenco degli operatori non ancora usati; sceglie “Marmorato” e il modale si chiude, tornando in M1 con “Sala 2 → Marmorato” mostrato.
+
+L’utente, finito di assegnare operatori a uno o più reparti, clicca “Salva” in ShiftModal: le assegnazioni vengono salvate in CalendarApp.assignments e M1 si chiude.
+
+Ora il cubo del giorno nel calendario mostra delle pillole colorate (uno per ogni ruolo assegnato), e il contatore interno di assignments si è aggiornato.
+
+Se l’utente vuole vedere le statistiche generali, clicca il pulsante “📊 Statistiche” sotto al calendario: si apre StatsModal (M3).
+
+In M3, può usare i tre pulsanti (Mensile, Annuale, Operatore) per avere viste diverse sui dati di assignments. Quando ha finito, preme “✕” e il modale si chiude.
+
+Riepilogo “cosa fanno” i modal, punto per punto
+ShiftModal (M1)
+
+Riceve la data selezionata (selectedDate) e le assegnazioni provvisorie di quel giorno (tempAssignments).
+
+Mostra un elenco statico di ruoli (Sala 1, Sala 2, …) e, se in tempAssignments[role] è già definito, visualizza “ruolo → operatore”.
+
+Consente di:
+
+Aprire il modale di selezione operatore (M2) per ciascun ruolo.
+
+Salvare definitivamente le assegnazioni (aggiorna assignments in CalendarApp).
+
+Chiudere senza salvare.
+
+OperatorModal (M2)
+
+Riceve la lista di tutti gli operatori (operators) e le assegnazioni provvisorie correnti (tempAssignments), più il selectedRole.
+
+Disabilita (grigia) gli operatori già usati in tempAssignments.
+
+Visualizza ogni operatore come pulsante; se è quello già selezionato per selectedRole, appare evidenziato.
+
+Quando l’utente sceglie un operatore cliccandolo, aggiorna tempAssignments[selectedRole] = op e chiude il modale.
+
+Può anche essere chiuso senza selezionare, semplicemente premendo “X”.
+
+StatsModal (M3)
+
+Riceve tutte le assegnazioni salvate (assignments) e la lista degli operatori.
+
+Calcola, in memoria, varie statistiche (mensili, annuali, per categoria e globale).
+
+Offre tre “tab” (Mensile, Annuale, per Operatore):
+
+Mensile: tabella con operatore vs mese, numeri di sostituzioni e icone/sfondi che indicano chi ha più/meno sostituzioni in quel mese.
+
+Annuale: blocchi per ogni anno, con elenco operatore→conteggio, icone per oro/argento/bronzo/last.
+
+Per Operatore: card individuali che mostrano totale sostituzioni e ripartizione in Sala/Reparto/Olieria, con icone e sfondi che evidenziano la categoria di punta di ciascun operatore e chi è primo/globale.
+
+Può essere chiuso con “X” in alto a destra.
+
+Con questa spiegazione dettagliata, hai il quadro completo di come, quando e cosa succede all’interno di ciascun modale dell’applicazione: dalle chiamate a open…Modal(), alla gestione degli stati (isM1Open, isM2Open, isStatsOpen, tempAssignments e assignments), fino al rendering e alle interazioni (scelta degli operatori, salvataggio, visualizzazione delle statistiche).
