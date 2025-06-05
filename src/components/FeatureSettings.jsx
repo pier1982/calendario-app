@@ -23,8 +23,8 @@ const FeatureSettings = ({ onClose }) => {
     setIsSaving(true);
     try {
       localStorage.setItem('featureSettings', JSON.stringify(settings));
-      // Ricarica la pagina per applicare le modifiche
-      window.location.reload();
+      // Chiudi il modal invece di ricaricare la pagina
+      onClose();
     } catch (error) {
       console.error('Errore nel salvataggio:', error);
     } finally {

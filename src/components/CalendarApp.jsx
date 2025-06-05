@@ -512,7 +512,14 @@ export default function CalendarApp() {
       {/* ─── MODALE IMPOSTAZIONI FUNZIONALITÀ ──────────────── */}
       {showFeatureSettings && (
         <FeatureSettings
-          onClose={() => setShowFeatureSettings(false)}
+          onClose={() => {
+            setShowFeatureSettings(false);
+            // Ricarica le impostazioni dal localStorage
+            const savedSettings = localStorage.getItem('featureSettings');
+            if (savedSettings) {
+              setFeatureSettings(JSON.parse(savedSettings));
+            }
+          }}
         />
       )}
     </div>
