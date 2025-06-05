@@ -67,30 +67,46 @@ export const AuthProvider = ({ children }) => {
 
   // Effetto per monitorare lo stato di autenticazione
   useEffect(() => {
-    // Ottieni la sessione corrente
+    // Carica la sessione iniziale
     const getSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) throw error;
-        
+        const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
         
         if (session?.user) {
           try {
-            const profile = await loadUserProfile(session.user.id);
+            // Carica profilo direttamente senza usare le funzioni callback
+            const { data: profile, error } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
             
             // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
-            if (!profile && session.user.email_confirmed_at) {
+            if (error && error.code === 'PGRST116' && session.user.email_confirmed_at) {
               try {
-                const newProfile = await createUserProfile(session.user, { role: 'operatore' });
+                const { data: newProfile, error: createError } = await supabase
+                  .from('user_profiles')
+                  .insert({
+                    id: session.user.id,
+                    email: session.user.email,
+                    role: 'operatore',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  })
+                  .select()
+                  .single();
+                
+                if (createError) throw createError;
                 setUserProfile(newProfile);
               } catch (error) {
                 console.error('Errore nella creazione automatica del profilo:', error);
                 setUserProfile(null);
               }
-            } else {
+            } else if (profile && !error) {
               setUserProfile(profile);
+            } else {
+              setUserProfile(null);
             }
           } catch (error) {
             console.error('Errore nel caricamento del profilo:', error);
