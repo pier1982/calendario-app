@@ -67,6 +67,12 @@ export const AuthProvider = ({ children }) => {
 
   // Effetto per monitorare lo stato di autenticazione
   useEffect(() => {
+    // Timeout di sicurezza per evitare caricamento infinito
+    const safetyTimeout = setTimeout(() => {
+      console.log('Safety timeout triggered - forcing loading to false');
+      setLoading(false);
+    }, 10000); // 10 secondi
+
     // Carica la sessione iniziale
     const loadUserProfile = async (user) => {
       try {
@@ -133,6 +139,7 @@ export const AuthProvider = ({ children }) => {
         setError(error.message);
       } finally {
         console.log('Setting loading to false');
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
     };
@@ -155,7 +162,10 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   // Funzione di login
