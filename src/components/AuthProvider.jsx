@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
             const { data: profile, error } = await supabase
               .from('user_profiles')
               .select('*')
-              .eq('id', session.user.id)
+              .eq('user_id', session.user.id)
               .single();
             
             // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
                 const { data: newProfile, error: createError } = await supabase
                   .from('user_profiles')
                   .insert({
-                    id: session.user.id,
+                    user_id: session.user.id,
                     email: session.user.email,
                     role: 'operatore',
                     created_at: new Date().toISOString(),
