@@ -312,6 +312,14 @@ export default function CalendarApp() {
     loadAssignments();
   }, []);
 
+  // ─── RICARICA DATI QUANDO L'UTENTE SI LOGGA ──────────────────
+  useEffect(() => {
+    if (user && !loading) {
+      console.log('Utente loggato, ricarico assignments...');
+      loadAssignments();
+    }
+  }, [user, loading]);
+
   // Mostra loading durante l'autenticazione
   if (loading) {
     return (
@@ -326,13 +334,13 @@ export default function CalendarApp() {
 
   return (
     <div className="p-4 max-w-md mx-auto bg-gray-50 min-h-screen">
-      {/* ─── HEADER UTENTE ──────────────────────────────────── */}
-      <div className="mb-4 bg-white p-3 rounded-md shadow-sm">
+      {/* ─── HEADER UTENTE COMPATTO ──────────────────────────────────── */}
+      <div className="mb-2 bg-white p-2 rounded-md shadow-sm">
         {user ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">
+              <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">
                   {userProfile?.full_name ? 
                     userProfile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 
                     user.email.charAt(0).toUpperCase()
@@ -340,27 +348,27 @@ export default function CalendarApp() {
                 </span>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800">
+                <p className="text-xs font-medium text-gray-800">
                   {userProfile?.full_name || user.email}
                 </p>
-                <p className="text-xs text-gray-500 capitalize">
-                  {isPendingAdmin() ? 'Admin in attesa di approvazione' : (userProfile?.role || 'utente')}
+                <p className="text-[10px] text-gray-500 capitalize">
+                  {isPendingAdmin() ? 'Admin in attesa' : (userProfile?.role || 'utente')}
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
               {/* Pulsante di emergenza per eliminare cache e riloggare */}
               <button
                 onClick={clearCacheAndRelogin}
-                className="text-orange-600 hover:text-orange-800 text-sm"
-                title="Elimina Cache e Rilogga (in caso di problemi di caricamento)"
+                className="text-orange-600 hover:text-orange-800 text-xs"
+                title="Elimina Cache e Rilogga"
               >
                 🔄
               </button>
               {canHideFeatures() && (
                 <button
                   onClick={() => setShowFeatureSettings(true)}
-                  className="text-purple-600 hover:text-purple-800 text-sm"
+                  className="text-purple-600 hover:text-purple-800 text-xs"
                   title="Gestione Funzionalità"
                 >
                   🎛️
@@ -369,7 +377,7 @@ export default function CalendarApp() {
               {canManageUsers() && (
                 <button
                   onClick={() => setShowUserManagement(true)}
-                  className="text-indigo-600 hover:text-indigo-800 text-sm"
+                  className="text-indigo-600 hover:text-indigo-800 text-xs"
                   title="Gestione Utenti"
                 >
                   👥
@@ -377,7 +385,7 @@ export default function CalendarApp() {
               )}
               <button
                 onClick={signOut}
-                className="text-red-600 hover:text-red-800 text-sm"
+                className="text-red-600 hover:text-red-800 text-xs"
                 title="Logout"
               >
                 🚪
@@ -388,7 +396,7 @@ export default function CalendarApp() {
           <div className="text-center">
             <button
               onClick={() => setShowAuthModal(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+              className="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 text-sm"
             >
               Accedi
             </button>
