@@ -68,50 +68,63 @@ export const AuthProvider = ({ children }) => {
   // Effetto per monitorare lo stato di autenticazione
   useEffect(() => {
     // Carica la sessione iniziale
+    const loadUserProfile = async (user) => {
+      try {
+        console.log('Loading profile for user:', user.id);
+        // Carica profilo direttamente senza usare le funzioni callback
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        console.log('Profile query result:', { profile, error });
+        
+        // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
+        if (error && error.code === 'PGRST116' && user.email_confirmed_at) {
+          try {
+            console.log('Creating new profile for user:', user.email);
+            const { data: newProfile, error: createError } = await supabase
+              .from('user_profiles')
+              .insert({
+                user_id: user.id,
+                email: user.email,
+                role: 'operatore',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select()
+              .single();
+            
+            if (createError) throw createError;
+            console.log('Profile created successfully:', newProfile);
+            setUserProfile(newProfile);
+          } catch (error) {
+            console.error('Errore nella creazione automatica del profilo:', error);
+            setUserProfile(null);
+          }
+        } else if (profile && !error) {
+          console.log('Profile loaded successfully:', profile);
+          setUserProfile(profile);
+        } else {
+          console.log('No profile found or error occurred:', error);
+          setUserProfile(null);
+        }
+      } catch (error) {
+        console.error('Errore nel caricamento del profilo:', error);
+        setUserProfile(null);
+      }
+    };
+
     const getSession = async () => {
       try {
+        console.log('Getting session...');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session retrieved:', session ? 'Found' : 'Not found');
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          try {
-            // Carica profilo direttamente senza usare le funzioni callback
-            const { data: profile, error } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .single();
-            
-            // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
-            if (error && error.code === 'PGRST116' && session.user.email_confirmed_at) {
-              try {
-                const { data: newProfile, error: createError } = await supabase
-                  .from('user_profiles')
-                  .insert({
-                    user_id: session.user.id,
-                    email: session.user.email,
-                    role: 'operatore',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                  })
-                  .select()
-                  .single();
-                
-                if (createError) throw createError;
-                setUserProfile(newProfile);
-              } catch (error) {
-                console.error('Errore nella creazione automatica del profilo:', error);
-                setUserProfile(null);
-              }
-            } else if (profile && !error) {
-              setUserProfile(profile);
-            } else {
-              setUserProfile(null);
-            }
-          } catch (error) {
-            console.error('Errore nel caricamento del profilo:', error);
-            setUserProfile(null);
-          }
+          await loadUserProfile(session.user);
         } else {
           setUserProfile(null);
         }
@@ -119,6 +132,7 @@ export const AuthProvider = ({ children }) => {
         console.error('Errore nel recupero della sessione:', error);
         setError(error.message);
       } finally {
+        console.log('Setting loading to false');
         setLoading(false);
       }
     };
@@ -128,45 +142,11 @@ export const AuthProvider = ({ children }) => {
     // Ascolta i cambiamenti di autenticazione
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session ? 'Session found' : 'No session');
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          try {
-            // Carica profilo direttamente senza usare le funzioni callback
-            const { data: profile, error } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .single();
-            
-            // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
-            if ((!profile || error?.code === 'PGRST116') && session.user.email_confirmed_at) {
-              try {
-                const { data: newProfile, error: createError } = await supabase
-                  .from('user_profiles')
-                  .insert({
-                    user_id: session.user.id,
-                    email: session.user.email,
-                    role: 'operatore'
-                  })
-                  .select()
-                  .single();
-                  
-                if (createError) throw createError;
-                setUserProfile(newProfile);
-              } catch (error) {
-                console.error('Errore nella creazione automatica del profilo:', error);
-                setUserProfile(null);
-              }
-            } else if (profile && !error) {
-              setUserProfile(profile);
-            } else {
-              setUserProfile(null);
-            }
-          } catch (error) {
-            console.error('Errore nel caricamento del profilo:', error);
-            setUserProfile(null);
-          }
+          await loadUserProfile(session.user);
         } else {
           setUserProfile(null);
         }
