@@ -6,9 +6,7 @@ const AuthModal = ({ isOpen, onClose, mode: initialMode = 'login' }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
-    fullName: '',
-    role: 'visualizzatore'
+    confirmPassword: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -21,9 +19,7 @@ const AuthModal = ({ isOpen, onClose, mode: initialMode = 'login' }) => {
     setFormData({
       email: '',
       password: '',
-      confirmPassword: '',
-      fullName: '',
-      role: 'visualizzatore'
+      confirmPassword: ''
     });
     setMessage({ type: '', text: '' });
     setError(null);
@@ -53,11 +49,6 @@ const AuthModal = ({ isOpen, onClose, mode: initialMode = 'login' }) => {
     }
 
     if (mode === 'register') {
-      if (!formData.fullName.trim()) {
-        setMessage({ type: 'error', text: 'Inserisci il nome completo' });
-        return false;
-      }
-      
       if (formData.password !== formData.confirmPassword) {
         setMessage({ type: 'error', text: 'Le password non coincidono' });
         return false;
@@ -87,10 +78,7 @@ const AuthModal = ({ isOpen, onClose, mode: initialMode = 'login' }) => {
           setTimeout(() => onClose(), 1000);
         }
       } else if (mode === 'register') {
-        const { data, error } = await signUp(formData.email, formData.password, {
-          full_name: formData.fullName,
-          role: formData.role
-        });
+        const { data, error } = await signUp(formData.email, formData.password);
         if (error) {
           setMessage({ type: 'error', text: error });
         } else {
@@ -178,56 +166,20 @@ const AuthModal = ({ isOpen, onClose, mode: initialMode = 'login' }) => {
 
           {/* Campi aggiuntivi per registrazione */}
           {mode === 'register' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Conferma Password
-                </label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome Completo
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Mario Rossi"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ruolo
-                </label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="visualizzatore">👁️ Visualizzatore (solo lettura)</option>
-                  <option value="operatore">✏️ Operatore (può modificare turni)</option>
-                  <option value="admin">👑 Amministratore (controllo completo)</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Il ruolo determina i permessi nell'applicazione
-                </p>
-              </div>
-            </>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Conferma Password
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="••••••••"
+                required
+              />
+            </div>
           )}
 
           {/* Messaggi */}

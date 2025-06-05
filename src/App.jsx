@@ -9,7 +9,7 @@ import CalendarApp from "./components/CalendarApp.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
 
 // Import del sistema di autenticazione
-import { AuthProvider } from "./components/AuthProvider.jsx";
+import AuthProvider from "./components/AuthProvider.jsx";
 
 export default function App() {
   return (

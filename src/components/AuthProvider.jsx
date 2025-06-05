@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 
 // Context per l'autenticazione
@@ -20,17 +20,84 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Carica il profilo utente dal database
+  const loadUserProfile = useCallback(async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Errore nel caricamento del profilo:', error);
+      throw error;
+    }
+  }, []);
+
+  // Crea un nuovo profilo utente
+  const createUserProfile = useCallback(async (user, additionalData = {}) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .insert({
+          user_id: user.id,
+          email: user.email,
+          role: additionalData.role || 'operatore',
+          ...additionalData
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Errore nella creazione del profilo:', error);
+      throw error;
+    }
+  }, []);
+
   // Effetto per monitorare lo stato di autenticazione
   useEffect(() => {
     // Ottieni la sessione corrente
     const getSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) throw error;
         
         setUser(session?.user ?? null);
+        
         if (session?.user) {
-          await loadUserProfile(session.user.id);
+          try {
+            const profile = await loadUserProfile(session.user.id);
+            
+            // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
+            if (!profile && session.user.email_confirmed_at) {
+              try {
+                const newProfile = await createUserProfile(session.user, { role: 'operatore' });
+                setUserProfile(newProfile);
+              } catch (error) {
+                console.error('Errore nella creazione automatica del profilo:', error);
+                setUserProfile(null);
+              }
+            } else {
+              setUserProfile(profile);
+            }
+          } catch (error) {
+            console.error('Errore nel caricamento del profilo:', error);
+            setUserProfile(null);
+          }
+        } else {
+          setUserProfile(null);
         }
       } catch (error) {
         console.error('Errore nel recupero della sessione:', error);
@@ -45,11 +112,45 @@ export const AuthProvider = ({ children }) => {
     // Ascolta i cambiamenti di autenticazione
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          await loadUserProfile(session.user.id);
+          try {
+            // Carica profilo direttamente senza usare le funzioni callback
+            const { data: profile, error } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            // Se l'utente non ha un profilo e l'email è confermata, crea il profilo
+            if ((!profile || error?.code === 'PGRST116') && session.user.email_confirmed_at) {
+              try {
+                const { data: newProfile, error: createError } = await supabase
+                  .from('user_profiles')
+                  .insert({
+                    user_id: session.user.id,
+                    email: session.user.email,
+                    role: 'operatore'
+                  })
+                  .select()
+                  .single();
+                  
+                if (createError) throw createError;
+                setUserProfile(newProfile);
+              } catch (error) {
+                console.error('Errore nella creazione automatica del profilo:', error);
+                setUserProfile(null);
+              }
+            } else if (profile && !error) {
+              setUserProfile(profile);
+            } else {
+              setUserProfile(null);
+            }
+          } catch (error) {
+            console.error('Errore nel caricamento del profilo:', error);
+            setUserProfile(null);
+          }
         } else {
           setUserProfile(null);
         }
@@ -60,26 +161,6 @@ export const AuthProvider = ({ children }) => {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Carica il profilo utente dal database
-  const loadUserProfile = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        throw error;
-      }
-
-      setUserProfile(data);
-    } catch (error) {
-      console.error('Errore nel caricamento del profilo:', error);
-      setError(error.message);
-    }
-  };
 
   // Funzione di login
   const signIn = async (email, password) => {
@@ -103,56 +184,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Funzione di registrazione
-  const signUp = async (email, password, userData = {}) => {
+  // Funzione di registrazione con creazione automatica del profilo
+  const signUp = async (email, password) => {
     try {
       setError(null);
       setLoading(true);
       
-      // Se l'utente si registra come admin, deve essere confermato
-      let finalRole = userData.role || 'visualizzatore';
-      if (userData.role === 'admin') {
-        finalRole = 'pending_admin'; // Stato temporaneo in attesa di conferma
-        
-        // Invia email di notifica all'admin principale
-        try {
-          await fetch('/api/notify-admin', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              newUserEmail: email,
-              newUserName: userData.full_name || email,
-              adminEmail: 'gigliottipierluigi@gmail.com'
-            })
-          });
-        } catch (notifyError) {
-          console.warn('Errore nell\'invio della notifica admin:', notifyError);
-          // Non bloccare la registrazione se la notifica fallisce
-        }
-      }
-      
       const { data, error } = await supabase.auth.signUp({
         email,
-        password,
-        options: {
-          data: userData
-        }
+        password
       });
 
       if (error) throw error;
-
-      // Se la registrazione è riuscita, crea il profilo utente
-      if (data.user) {
-        await createUserProfile(data.user.id, {
-          email: data.user.email,
-          full_name: userData.full_name || '',
-          role: finalRole,
-          ...userData
-        });
+      
+      // Se la registrazione è avvenuta con successo e l'utente è confermato,
+      // crea automaticamente il profilo utente
+      if (data.user && !data.user.email_confirmed_at) {
+        // L'utente deve confermare l'email prima che il profilo venga creato
+        console.log('Utente registrato. Conferma email richiesta.');
+      } else if (data.user) {
+        // Crea il profilo utente automaticamente
+        await createUserProfile(data.user, { role: 'operatore' });
       }
-
+      
       return { data, error: null };
     } catch (error) {
       console.error('Errore nella registrazione:', error);
@@ -163,28 +217,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Crea profilo utente nel database
-  const createUserProfile = async (userId, profileData) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .insert({
-          user_id: userId,
-          ...profileData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setUserProfile(data);
-      return data;
-    } catch (error) {
-      console.error('Errore nella creazione del profilo:', error);
-      throw error;
-    }
-  };
 
   // Funzione di logout
   const signOut = async () => {
