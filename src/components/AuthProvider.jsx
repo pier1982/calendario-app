@@ -375,46 +375,39 @@ export const AuthProvider = ({ children }) => {
   // Funzione per eliminare cache e riloggare utente
   const clearCacheAndRelogin = async () => {
     try {
-      setError(null);
-      setLoading(true);
+      console.log('🔄 Avvio pulizia cache e reset completo...');
       
-      // Salva le credenziali dell'utente corrente
-      const currentUser = user;
-      const currentEmail = user?.email;
-      
-      if (!currentUser || !currentEmail) {
-        throw new Error('Nessun utente attualmente loggato');
-      }
-      
-      console.log('Eliminazione cache e re-login per:', currentEmail);
-      
-      // Effettua logout completo
-      await supabase.auth.signOut();
-      
-      // Pulisce lo stato locale
-      setUser(null);
-      setUserProfile(null);
-      
-      // Pulisce localStorage e sessionStorage
+      // Pulisce immediatamente localStorage e sessionStorage
       localStorage.clear();
       sessionStorage.clear();
       
       // Pulisce cache del browser se supportato
       if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames.map(cacheName => caches.delete(cacheName))
-        );
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('✅ Cache del browser pulita');
+        } catch (cacheError) {
+          console.warn('⚠️ Errore nella pulizia cache browser:', cacheError);
+        }
       }
       
-      // Forza il reload della pagina per eliminare completamente la cache
-      window.location.reload();
+      // Effettua logout da Supabase in background (non aspetta)
+      supabase.auth.signOut().catch(error => {
+        console.warn('⚠️ Errore nel logout Supabase:', error);
+      });
+      
+      // Forza immediatamente il reload della pagina
+      // Questo interrompe qualsiasi processo di caricamento infinito
+      console.log('🔄 Forzando reload della pagina...');
+      window.location.href = window.location.href;
       
     } catch (error) {
-      console.error('Errore nella pulizia cache e re-login:', error);
-      setError(error.message);
-      setLoading(false);
-      return { success: false, error: error.message };
+      console.error('❌ Errore nella pulizia cache:', error);
+      // Anche in caso di errore, forza il reload
+      window.location.reload();
     }
   };
 
