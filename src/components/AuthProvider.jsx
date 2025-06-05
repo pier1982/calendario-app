@@ -372,6 +372,52 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Funzione per eliminare cache e riloggare utente
+  const clearCacheAndRelogin = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      
+      // Salva le credenziali dell'utente corrente
+      const currentUser = user;
+      const currentEmail = user?.email;
+      
+      if (!currentUser || !currentEmail) {
+        throw new Error('Nessun utente attualmente loggato');
+      }
+      
+      console.log('Eliminazione cache e re-login per:', currentEmail);
+      
+      // Effettua logout completo
+      await supabase.auth.signOut();
+      
+      // Pulisce lo stato locale
+      setUser(null);
+      setUserProfile(null);
+      
+      // Pulisce localStorage e sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Pulisce cache del browser se supportato
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+      }
+      
+      // Forza il reload della pagina per eliminare completamente la cache
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Errore nella pulizia cache e re-login:', error);
+      setError(error.message);
+      setLoading(false);
+      return { success: false, error: error.message };
+    }
+  };
+
   const value = {
     user,
     userProfile,
@@ -383,6 +429,7 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     resetPassword,
     updatePassword,
+    clearCacheAndRelogin,
     hasRole,
     hasPermission,
     canModifyAssignments,

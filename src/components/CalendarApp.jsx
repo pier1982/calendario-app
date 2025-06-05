@@ -28,7 +28,7 @@ import { it } from "date-fns/locale";
 
 export default function CalendarApp() {
   // ─── AUTENTICAZIONE ──────────────────────────────────────────
-  const { user, userProfile, loading, signOut, canModifyAssignments, canManageUsers, canHideFeatures, isPendingAdmin } = useAuth();
+  const { user, userProfile, loading, signOut, canModifyAssignments, canManageUsers, canHideFeatures, isPendingAdmin, clearCacheAndRelogin } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showFeatureSettings, setShowFeatureSettings] = useState(false);
@@ -349,6 +349,14 @@ export default function CalendarApp() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Pulsante di emergenza per eliminare cache e riloggare */}
+              <button
+                onClick={clearCacheAndRelogin}
+                className="text-orange-600 hover:text-orange-800 text-sm"
+                title="Elimina Cache e Rilogga (in caso di problemi di caricamento)"
+              >
+                🔄
+              </button>
               {canHideFeatures() && (
                 <button
                   onClick={() => setShowFeatureSettings(true)}
